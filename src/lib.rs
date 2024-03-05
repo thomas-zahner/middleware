@@ -56,11 +56,11 @@ impl Middleware for Check {
 }
 
 pub fn traverse(req: Request, mut iter: IntoIter<Box<dyn Middleware>>) -> Response {
-    let next = iter.next();
-    let f = Box::new(|req| traverse(req, iter));
+    let middleware = iter.next();
+    let get_next: NextFunction = Box::new(|req| traverse(req, iter));
 
-    match next {
-        Some(mut n) => n.handle(req, f),
+    match middleware {
+        Some(mut n) => n.handle(req, get_next),
         None => panic!("Called `next` function, but there was no next middleware"),
     }
 }
