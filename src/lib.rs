@@ -1,14 +1,19 @@
+use ::extism::{convert::Msgpack, FromBytes, ToBytes};
+use serde::{Deserialize, Serialize};
 use std::vec::IntoIter;
 
+mod extism;
 mod middlewares;
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(ToBytes, Serialize, FromBytes, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[encoding(Msgpack)]
 pub struct Request {
     url: String,
     // headers: Vec<String>,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(ToBytes, Serialize, FromBytes, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
+#[encoding(Msgpack)]
 pub struct Response {
     code: usize,
     // body: String,
@@ -16,11 +21,11 @@ pub struct Response {
 
 pub type NextFunction = Box<dyn FnOnce(Request) -> Response>;
 
-pub trait Middleware {
+pub trait RequestMiddleware {
     fn handle(&mut self, req: Request, next: NextFunction) -> Response;
 }
 
-pub fn traverse(req: Request, mut iter: IntoIter<Box<dyn Middleware>>) -> Response {
+pub fn traverse(req: Request, mut iter: IntoIter<Box<dyn RequestMiddleware>>) -> Response {
     let middleware = iter.next();
     let get_next: NextFunction = Box::new(|req| traverse(req, iter));
 
@@ -34,7 +39,7 @@ pub fn traverse(req: Request, mut iter: IntoIter<Box<dyn Middleware>>) -> Respon
 mod test {
     use crate::{
         middlewares::{Cache, Check, Rewrite},
-        traverse, Middleware, Request, Response,
+        traverse, RequestMiddleware, Request, Response,
     };
 
     #[test]
@@ -43,7 +48,7 @@ mod test {
         let cache = Cache::default();
         let check = Check {};
 
-        let chain: Vec<Box<dyn Middleware>> =
+        let chain: Vec<Box<dyn RequestMiddleware>> =
             vec![Box::new(rewrite), Box::new(cache), Box::new(check)];
 
         let req = Request {
@@ -57,7 +62,7 @@ mod test {
     #[test]
     fn caching() {
         struct CheckMock {}
-        impl Middleware for CheckMock {
+        impl RequestMiddleware for CheckMock {
             fn handle(&mut self, _: Request, _: crate::NextFunction) -> Response {
                 Response { code: 200 }
             }
@@ -65,7 +70,7 @@ mod test {
 
         let cache = Cache::default();
         let check = CheckMock {};
-        let chain: Vec<Box<dyn Middleware>> = vec![Box::new(cache), Box::new(check)];
+        let chain: Vec<Box<dyn RequestMiddleware>> = vec![Box::new(cache), Box::new(check)];
 
         let req = Request {
             url: "example.com".into(),
