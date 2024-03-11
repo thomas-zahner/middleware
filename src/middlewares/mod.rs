@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Middleware, NextFunction, Request, Response};
+use crate::middleware::{Middleware, NextFunction, Request, Response};
 
 pub struct Rewrite {}
 
